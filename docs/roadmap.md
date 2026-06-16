@@ -12,19 +12,19 @@ Status: current
 
 ## Milestone 1: Minimal Recorder
 
-Goal: produce one valid `.wtacmi` session from one pilot.
+Goal: produce one valid `.acmi` session from one pilot.
 
 - Poll localhost `8111`.
 - Store timestamped telemetry samples.
-- Capture basic control inputs.
-- Write `manifest.json`, `telemetry.ndjson`, `inputs.ndjson`, and `errors.ndjson`.
+- Capture basic keyboard/mouse control inputs from a selected `.blk` controls file.
+- Write `manifest.json`, `telemetry.ndjson`, `inputs.ndjson`, `events.ndjson`, and `errors.ndjson`.
 - Add a simple recording status UI or CLI.
 
 ## Milestone 2: Import And Single-Track Replay
 
 Goal: replay one recorded aircraft track.
 
-- Import `.wtacmi`.
+- Import `.acmi`.
 - Validate manifest and samples.
 - Reconstruct one aircraft trajectory.
 - Render aircraft path in 3D.

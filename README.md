@@ -10,7 +10,8 @@ WTACMI (War Thunder Air Combat Maneuvering Instrumentation) is a planned air com
 - [Telemetry and Recording Format](docs/telemetry-recording-format.md)
 - [Team Collaboration Guide](docs/team-collaboration.md)
 - [Roadmap](docs/roadmap.md)
+- [Recorder](recorder/README.md)
 
 ## Project Status
 
-This repository is in the planning and documentation stage. Implementation should follow the module boundaries and data contracts described in `docs/`.
+The repository now includes an initial Python recorder prototype. Broader analyzer and replay implementation should follow the module boundaries and data contracts described in `docs/`.

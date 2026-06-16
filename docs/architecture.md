@@ -12,7 +12,7 @@ Telemetry Poller ---- Input Capture
       Sample Clock and Recorder
           |
           v
-   Session Package (.wtacmi)
+   Session Package (.acmi)
           |
           v
  Import, Validation, Synchronization
@@ -95,7 +95,7 @@ Telemetry Poller ---- Input Capture
 ## Data Flow
 
 1. Recorder collects telemetry and input samples.
-2. Recorder writes a `.wtacmi` session package.
+2. Recorder writes a `.acmi` session package.
 3. Analyzer imports one or two packages.
 4. Analyzer validates package integrity and schema version.
 5. Synchronizer creates a shared timeline.

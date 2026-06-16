@@ -5,10 +5,10 @@
 Use a versioned package extension:
 
 ```text
-session-name.wtacmi
+session-name.acmi
 ```
 
-For the first implementation, `.wtacmi` can be a ZIP archive containing JSON metadata and newline-delimited JSON sample files:
+For the first implementation, `.acmi` is a ZIP archive containing JSON metadata and newline-delimited JSON sample files:
 
 ```text
 manifest.json
@@ -18,7 +18,7 @@ events.ndjson
 errors.ndjson
 ```
 
-This keeps files portable, streamable, and easy to inspect during development.
+This keeps files portable, streamable, lightweight, and easy to inspect during development.
 
 ## Manifest
 
@@ -83,6 +83,21 @@ Each line in `inputs.ndjson` is one input sample:
 
 Control values should be normalized to `-1.0..1.0` or `0.0..1.0` depending on control type. Keep raw device values only if needed for debugging.
 
+## Replay-Derived Animation Data
+
+The recorder should not write derived animation frames. It should stay lightweight and preserve raw data with timestamps. The analyzer/replay app should generate viewer tracks offline from `telemetry.ndjson` and `inputs.ndjson`.
+
+The derived replay model should include values that can change 3D animation:
+
+- map position and altitude;
+- roll, pitch, heading, angle of attack, and sideslip;
+- speed, vertical speed, load factor, and angular rates;
+- aileron, elevator, rudder, flaps, landing gear, and airbrake state;
+- throttle, engine state, fuel, and other propulsion values;
+- player input state and active bindings.
+
+Because this data is derived, extraction rules can improve without requiring users to re-record sessions.
+
 ## Event Sample
 
 Events describe important points in time:
@@ -127,6 +142,7 @@ The analyzer must:
 - warn on missing optional fields;
 - preserve raw sample data;
 - normalize data into an internal analysis model;
+- generate replay animation tracks from raw telemetry and input samples;
 - report sample gaps and schema issues before replay.
 
 ## Versioning Rules
