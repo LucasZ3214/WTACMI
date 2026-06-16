@@ -2,13 +2,13 @@
 
 ## File Package
 
-Use a versioned package extension:
+WTACMI uses `.acmi` as the recording extension:
 
 ```text
 session-name.acmi
 ```
 
-For the first implementation, `.acmi` is a ZIP archive containing JSON metadata and newline-delimited JSON sample files:
+The current `.acmi` file is a ZIP archive containing:
 
 ```text
 manifest.json
@@ -18,74 +18,152 @@ events.ndjson
 errors.ndjson
 ```
 
-This keeps files portable, streamable, lightweight, and easy to inspect during development.
+The recorder intentionally keeps the package lightweight. It stores raw telemetry and input samples. Derived animation/replay tracks are generated later by the analyzer.
 
 ## Manifest
+
+`manifest.json` describes the recording:
 
 ```json
 {
   "formatVersion": 1,
   "appVersion": "0.1.0",
   "recordingId": "uuid",
-  "pilotAlias": "Pilot A",
-  "aircraftName": "unknown",
-  "game": "War Thunder",
-  "createdAtUtc": "2026-06-16T00:00:00.000Z",
+  "pilotAlias": "pilot",
+  "createdAtUtc": "2026-06-16T00:00:00.000+00:00",
   "clock": {
     "type": "monotonic",
-    "startWallTimeUtc": "2026-06-16T00:00:00.000Z"
+    "startWallTimeUtc": "2026-06-16T00:00:00.000+00:00"
   },
   "sampleRates": {
-    "telemetryHzTarget": 30,
-    "inputHzTarget": 60
+    "telemetryHzTarget": 10.0,
+    "inputHzTarget": 60.0
   },
   "source": {
-    "localhostBaseUrl": "http://localhost:8111"
-  }
+    "localhostBaseUrl": "http://localhost:8111",
+    "endpoints": {
+      "state": "/state",
+      "indicators": "/indicators",
+      "map_info": "/map_info.json",
+      "mission": "/mission.json",
+      "map_objects": "/map_obj.json"
+    },
+    "localhostDocumentation": "https://github.com/lucasvmx/WarThunder-localhost-documentation"
+  },
+  "controlsFile": {
+    "path": "C:/Users/.../WarThunder/Saves/example.blk",
+    "sha256": "..."
+  },
+  "inputBindings": {}
 }
 ```
 
-## Telemetry Sample
+## Telemetry Samples
 
-Each line in `telemetry.ndjson` is one sample:
+Each line in `telemetry.ndjson` is one endpoint response:
 
 ```json
 {
   "tMs": 1234.56,
+  "endpointName": "state",
   "endpoint": "/state",
   "latencyMs": 2.4,
-  "data": {
-    "raw": {}
-  }
+  "data": {}
 }
 ```
 
-Use `tMs` as milliseconds from local monotonic recording start.
+Notes:
 
-## Input Sample
+- `tMs` is milliseconds since the recorder's monotonic start.
+- `data` is the raw parsed JSON response from War Thunder.
+- One telemetry cycle can produce multiple lines because each endpoint is stored separately.
+- Request failures are stored in `errors.ndjson`, not in `telemetry.ndjson`.
 
-Each line in `inputs.ndjson` is one input sample:
+## Input Samples
+
+Each line in `inputs.ndjson` is one sampled input state:
 
 ```json
 {
   "tMs": 1234.56,
   "controls": {
-    "pitch": 0.0,
-    "roll": 0.0,
-    "yaw": 0.0,
-    "throttle": 1.0,
+    "pitch_up": false,
+    "pitch_down": true,
+    "roll_left": false,
+    "roll_right": true,
+    "throttle_up": false,
+    "throttle_down": false,
     "flaps": false,
+    "flaps_up": false,
+    "flaps_down": false,
     "airbrake": false,
-    "firePrimary": false
+    "fire_primary": false,
+    "fire_secondary": false,
+    "weapon_lock": false,
+    "countermeasures": false,
+    "pitch": 1.0,
+    "roll": 1.0,
+    "throttle_step": 0.0
+  },
+  "activeBindings": {
+    "pitch_down": ["S"],
+    "roll_right": ["D"]
   }
 }
 ```
 
-Control values should be normalized to `-1.0..1.0` or `0.0..1.0` depending on control type. Keep raw device values only if needed for debugging.
+Control values:
+
+- Boolean fields show whether a mapped action is pressed.
+- `pitch`, `roll`, and `throttle_step` are normalized keyboard-derived values.
+- `activeBindings` lists human-readable binding labels active at that sample.
+
+## Event Samples
+
+Events describe important points in time:
+
+```json
+{
+  "tMs": 0,
+  "type": "recording-started",
+  "utc": "2026-06-16T00:00:00.000+00:00"
+}
+```
+
+Current event types:
+
+- `recording-started`
+- `recording-stopped`
+
+Planned event types:
+
+- `manual-marker`
+- `telemetry-gap`
+- `weapon-fired`
+- `merge-detected`
+- `sync-anchor`
+
+## Error Samples
+
+Each line in `errors.ndjson` records one failed endpoint request:
+
+```json
+{
+  "tMs": 2300.0,
+  "endpointName": "state",
+  "endpoint": "/state",
+  "latencyMs": 50.1,
+  "source": "telemetry-poller",
+  "severity": "warning",
+  "message": "timed out"
+}
+```
+
+Errors are part of the recording and should be displayed by future import tools.
 
 ## Replay-Derived Animation Data
 
-The recorder should not write derived animation frames. It should stay lightweight and preserve raw data with timestamps. The analyzer/replay app should generate viewer tracks offline from `telemetry.ndjson` and `inputs.ndjson`.
+The recorder does not write `animation.ndjson`. Replay-ready animation data should be generated offline by the analyzer from `telemetry.ndjson` and `inputs.ndjson`.
 
 The derived replay model should include values that can change 3D animation:
 
@@ -98,48 +176,25 @@ The derived replay model should include values that can change 3D animation:
 
 Because this data is derived, extraction rules can improve without requiring users to re-record sessions.
 
-## Event Sample
+## Polling Rate Detection
 
-Events describe important points in time:
+The PyQt6 GUI can run a short benchmark against the same five endpoints used by recording. The benchmark result is not stored in `.acmi` by default. It is a setup aid used to fill a conservative `Telemetry Hz` value.
 
-```json
-{
-  "tMs": 5000,
-  "type": "manual-marker",
-  "label": "Merge"
-}
-```
+The benchmark reports:
 
-Potential event types:
-
-- `recording-started`
-- `recording-stopped`
-- `manual-marker`
-- `telemetry-gap`
-- `weapon-fired`
-- `merge-detected`
-- `sync-anchor`
-
-## Error Sample
-
-```json
-{
-  "tMs": 2300,
-  "source": "telemetry-poller",
-  "severity": "warning",
-  "message": "Request timeout",
-  "details": {
-    "endpoint": "/state"
-  }
-}
-```
+- full-cycle Hz;
+- successful-cycle Hz;
+- average cycle duration;
+- p95 cycle duration;
+- recommended telemetry Hz;
+- per-endpoint average latency, max latency, and error count.
 
 ## Import Contract
 
 The analyzer must:
 
 - reject unknown future major versions;
-- warn on missing optional fields;
+- warn on missing optional files or fields;
 - preserve raw sample data;
 - normalize data into an internal analysis model;
 - generate replay animation tracks from raw telemetry and input samples;

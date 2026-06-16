@@ -1,21 +1,32 @@
 # Architecture
 
-## System Components
+## Current System Components
 
 ```text
 War Thunder localhost 8111
           |
           v
-Telemetry Poller ---- Input Capture
-          |                |
-          v                v
-      Sample Clock and Recorder
-          |
-          v
-   Session Package (.acmi)
+Telemetry Poller ---- Controls .blk Parser ---- Windows Input Sampler
+          |                       |                       |
+          v                       v                       v
+                 Sample Clock and Recorder Core
+                              |
+                              v
+                       .acmi Session Package
+```
+
+The current recorder is intentionally lightweight. It writes raw telemetry and input samples only. It does not generate derived animation tracks during recording.
+
+## Planned Analysis Components
+
+```text
+.acmi Session Package(s)
           |
           v
  Import, Validation, Synchronization
+          |
+          v
+ Replay Track Derivation
           |
           v
  Reconstruction and Metrics Engine
@@ -26,26 +37,36 @@ Telemetry Poller ---- Input Capture
 
 ## Component Responsibilities
 
+### PyQt6 Recorder GUI
+
+- Lets the user select a War Thunder controls `.blk` file.
+- Lets the user choose output `.acmi` path.
+- Defaults output to `recorder/output/recording-YYYYMMDD-HHMMSS.acmi`.
+- Defaults pilot name to `pilot`.
+- Remembers last GUI settings through `QSettings`.
+- Starts and stops the recorder core in a background `QThread`.
+- Displays recorder logs.
+- Runs a short localhost `8111` benchmark through `Detect Max Hz`.
+
 ### Telemetry Poller
 
-- Polls `8111` endpoints at a configurable rate.
-- Parses JSON responses into typed telemetry samples.
-- Adds local monotonic timestamps to every sample.
-- Records request latency and request errors.
+- Polls configured `8111` endpoints at the selected telemetry Hz.
+- Stores raw JSON endpoint responses.
+- Adds local monotonic timestamps.
+- Records request latency and errors.
 
-### Input Capture
+### Controls Parser
 
-- Captures relevant control inputs:
-  - pitch
-  - roll
-  - yaw
-  - throttle
-  - flaps
-  - airbrake
-  - weapon/fire states where available
-  - view or tracking input only if useful for analysis
-- Uses local monotonic timestamps.
-- Keeps input capture implementation isolated behind an interface.
+- Reads War Thunder `.blk` controls files.
+- Extracts relevant keyboard and mouse button bindings.
+- Converts DirectInput keyboard scan codes into Windows virtual-key codes.
+- Stores selected bindings in `manifest.json`.
+
+### Input Sampler
+
+- Samples Windows keyboard and mouse button state.
+- Records normalized control states such as `pitch`, `roll`, and `throttle_step`.
+- Records active binding labels for debugging and replay overlays.
 
 ### Sample Clock
 
@@ -55,38 +76,49 @@ Telemetry Poller ---- Input Capture
 
 ### Session Writer
 
-- Writes raw telemetry, input samples, metadata, and errors.
-- Flushes data regularly to reduce data loss after crashes.
-- Produces a versioned session package.
+- Writes `manifest.json`, `telemetry.ndjson`, `inputs.ndjson`, `events.ndjson`, and `errors.ndjson`.
+- Packages those files as `.acmi`, which is a ZIP archive.
+- Flushes NDJSON data regularly.
+
+### Polling Benchmark
+
+- Repeatedly requests the same endpoints used during recording.
+- Computes full-cycle Hz, successful-cycle Hz, average cycle time, p95 cycle time, and per-endpoint latency/error summaries.
+- Fills GUI telemetry Hz with a conservative recommended value.
 
 ### Importer
 
-- Reads session packages.
-- Validates schema versions and required fields.
+Planned:
+
+- Reads `.acmi` packages.
+- Validates schema versions and required files.
 - Reports missing fields, time gaps, and suspicious sample intervals.
 
 ### Synchronizer
 
+Planned:
+
 - Aligns Pilot A and Pilot B recordings onto a shared engagement timeline.
-- Uses one or more strategies:
-  - wall-clock start time
-  - shared event markers
-  - takeoff/merge/fire event matching
-  - manual offset adjustment
+- Uses wall-clock metadata, shared event markers, automatic event matching, and manual offset controls.
 
-### Reconstruction Engine
+### Replay Track Deriver
 
-- Converts raw telemetry into viewer-ready tracks.
-- Interpolates positions and orientations.
-- Handles coordinate system conversion.
-- Marks confidence and missing-data intervals.
+Planned:
+
+- Converts raw `telemetry.ndjson` and `inputs.ndjson` data into viewer-ready tracks.
+- Derives position, altitude, attitude, speed, surface state, propulsion state, and input overlays offline.
+- Allows extraction rules to improve without requiring users to re-record sessions.
 
 ### Metrics Engine
 
+Planned:
+
 - Computes frame-by-frame ACM metrics from synchronized tracks.
-- Emits event markers such as merge, overshoot, reversal, hard break, and firing window where possible.
+- Emits event markers such as merge, overshoot, reversal, hard break, and firing windows where possible.
 
 ### Viewer
+
+Planned:
 
 - Renders aircraft, trails, ground/grid reference, labels, and metric overlays.
 - Provides playback controls and camera modes.
@@ -94,18 +126,19 @@ Telemetry Poller ---- Input Capture
 
 ## Data Flow
 
-1. Recorder collects telemetry and input samples.
-2. Recorder writes a `.acmi` session package.
-3. Analyzer imports one or two packages.
-4. Analyzer validates package integrity and schema version.
-5. Synchronizer creates a shared timeline.
-6. Reconstruction engine generates tracks.
-7. Metrics engine computes ACM values.
-8. Viewer renders replay and analysis overlays.
+1. User starts the GUI or CLI recorder.
+2. Recorder parses the selected `.blk` controls file.
+3. Recorder polls `8111` telemetry and samples input state.
+4. Recorder writes a `.acmi` session package.
+5. Analyzer imports one or two `.acmi` files.
+6. Analyzer validates raw data and derives replay tracks.
+7. Synchronizer creates a shared timeline.
+8. Metrics engine computes ACM values.
+9. Viewer renders replay and analysis overlays.
 
 ## Coordinate System Notes
 
-War Thunder telemetry and map data may not match the viewer coordinate system. The implementation must keep coordinate transforms explicit:
+War Thunder telemetry and map data may not match the viewer coordinate system. Future replay code must keep coordinate transforms explicit:
 
 - `source`: raw coordinate from telemetry.
 - `world`: normalized analysis coordinate.
@@ -115,7 +148,7 @@ Never mix these coordinate spaces without naming the conversion.
 
 ## Error Handling Principles
 
-- Store raw errors in the session package.
+- Store raw request errors in `errors.ndjson`.
 - Do not discard samples unless they are invalid by schema.
 - Show import warnings to users.
 - Keep replay usable even with partial data.

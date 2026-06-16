@@ -2,45 +2,73 @@
 
 ## Milestone 0: Planning
 
-Status: current
+Status: complete
 
 - Define project scope.
 - Create developer documentation.
-- Decide initial technology stack.
-- Identify stable War Thunder `8111` endpoints.
-- Define session file format.
+- Decide first recorder implementation approach.
+- Identify initial War Thunder `8111` endpoints.
+- Define `.acmi` package structure.
 
 ## Milestone 1: Minimal Recorder
 
+Status: implemented for keyboard/mouse first version
+
 Goal: produce one valid `.acmi` session from one pilot.
 
+Implemented:
+
 - Poll localhost `8111`.
-- Store timestamped telemetry samples.
+- Store timestamped raw telemetry samples.
 - Capture basic keyboard/mouse control inputs from a selected `.blk` controls file.
 - Write `manifest.json`, `telemetry.ndjson`, `inputs.ndjson`, `events.ndjson`, and `errors.ndjson`.
-- Add a simple recording status UI or CLI.
+- Provide a CLI recorder.
+- Provide a PyQt6 GUI recorder.
+- Default output to `recorder/output/`.
+- Remember last GUI settings.
+- Detect current localhost `8111` polling capacity and suggest telemetry Hz.
 
-## Milestone 2: Import And Single-Track Replay
+Remaining recorder work:
+
+- Add joystick/gamepad axis capture.
+- Add optional mouse aim data if useful and safe.
+- Add better live recording status such as file size, sample counts, and last endpoint error.
+- Add packaging for non-developer Windows users.
+
+## Milestone 2: ACMI Import And Validation
+
+Status: next
+
+Goal: read `.acmi` files and report whether they are usable.
+
+- Load `.acmi` ZIP packages.
+- Validate required files.
+- Validate manifest version and sample rates.
+- Count telemetry, input, event, and error samples.
+- Report endpoint gaps and high-latency regions.
+- Show basic recording summary.
+
+## Milestone 3: Single-Track Replay
 
 Goal: replay one recorded aircraft track.
 
-- Import `.acmi`.
-- Validate manifest and samples.
+- Derive replay track data from `telemetry.ndjson` and `inputs.ndjson`.
 - Reconstruct one aircraft trajectory.
 - Render aircraft path in 3D.
 - Add play, pause, seek, and speed controls.
+- Show telemetry and input overlays.
 
-## Milestone 3: Two-Pilot Synchronization
+## Milestone 4: Two-Pilot Synchronization
 
 Goal: import both pilots' files and show the same fight.
 
-- Load two session files.
+- Load two `.acmi` files.
 - Align timelines by offset.
 - Provide manual sync adjustment.
 - Display both trajectories.
 - Show range, closure, and altitude separation.
 
-## Milestone 4: ACM Analysis Views
+## Milestone 5: ACM Analysis Views
 
 Goal: make the tool useful for training review.
 
@@ -50,7 +78,7 @@ Goal: make the tool useful for training review.
 - Add event markers.
 - Add screenshot export.
 
-## Milestone 5: Validation And Polish
+## Milestone 6: Validation And Polish
 
 Goal: make the project usable by a small training group.
 
@@ -58,7 +86,7 @@ Goal: make the project usable by a small training group.
 - Compare replay output against known fight events.
 - Improve interpolation and missing-data handling.
 - Add user documentation.
-- Package the app for Windows.
+- Package the recorder and analyzer for Windows.
 
 ## Future Ideas
 

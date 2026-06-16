@@ -8,19 +8,43 @@ Japanese display name: 空戦機動計測 Air Combat Maneuvering Instrumentation
 
 ## Goal
 
-Build a training and analysis tool for War Thunder air combat practice. The tool records telemetry returned by the local War Thunder `8111` HTTP interface and player input state during training. When both pilots install and run the recorder, the software can import both records, synchronize them, reconstruct the 3D dogfight trajectory, and provide replay, free camera, and orthographic analysis views.
+Build a local-first training and analysis tool for War Thunder air combat practice. The recorder captures War Thunder localhost `8111` telemetry and local player input during training. The future analyzer will import one or two `.acmi` recordings, synchronize them, reconstruct 3D dogfight trajectories, and provide replay plus ACM metric views.
+
+## Current Implementation
+
+The repository currently includes a lightweight Python recorder:
+
+- `recorder/wtacmi_recorder.py`: CLI recorder and reusable recording core.
+- `recorder/wtacmi_gui.py`: PyQt6 GUI wrapper around the recorder core.
+- `recorder/output/`: default GUI/CLI output directory for `.acmi` files.
+
+The recorder:
+
+- polls War Thunder localhost `8111`;
+- parses a selected War Thunder controls `.blk` file;
+- samples keyboard and mouse button state on Windows;
+- writes raw telemetry and input samples into `.acmi`;
+- records request errors instead of stopping immediately;
+- can benchmark local `8111` polling speed and suggest a conservative telemetry Hz.
 
 ## Target Users
 
 - War Thunder pilots practicing dogfight tactics.
 - Training partners who want to compare maneuver choices after a sortie.
-- Instructors who need a repeatable way to review geometry, closure, energy, timing, and control inputs.
+- Instructors who need repeatable review of geometry, closure, energy, timing, and control inputs.
 
 ## Core Capabilities
 
+Implemented recorder capabilities:
+
 - Record local telemetry from `http://localhost:8111`.
-- Record player input values with timestamps.
-- Store each pilot's session as a portable file.
+- Record selected keyboard/mouse input values with timestamps.
+- Store each pilot's session as a portable `.acmi` file.
+- Use a GUI to choose controls file, output path, pilot name, sample rates, and duration.
+- Remember last GUI settings across launches.
+
+Planned analyzer capabilities:
+
 - Import records from both pilots for one fight.
 - Synchronize two independent timelines.
 - Reconstruct 3D aircraft trajectories.
@@ -28,53 +52,63 @@ Build a training and analysis tool for War Thunder air combat practice. The tool
 - Inspect the fight from top, side, front, chase, free, and orthographic views.
 - Display derived ACM metrics such as range, aspect angle, heading crossing angle, altitude separation, closure rate, turn rate, and energy trend.
 
-## Non-Goals For The First Version
+## Non-Goals
 
 - No memory reading or game process modification.
-- No real-time multiplayer data exchange between machines.
-- No automatic anti-cheat-sensitive behavior.
-- No competitive ranking or public cloud service.
-- No full flight dynamics simulation. The replay reconstructs measured/derived positions and attitudes from recorded data.
+- No code injection into War Thunder.
+- No gameplay automation.
+- No real-time multiplayer telemetry exchange in the first version.
+- No full flight-dynamics simulation. Replay should reconstruct measured and derived tracks from recorded data.
 
 ## High-Level Workflow
 
 1. Pilot A and Pilot B both start WTACMI Recorder before training.
-2. Each recorder polls War Thunder localhost `8111` telemetry and captures local input state.
-3. After the fight, both pilots export their session files.
-4. One user imports both files into WTACMI Analyzer.
-5. The analyzer aligns timelines, validates data quality, and reconstructs the two-aircraft scene.
+2. Each recorder polls War Thunder localhost `8111` and captures local input state.
+3. Each pilot stops recording and exports a `.acmi` file.
+4. One user imports both `.acmi` files into the future WTACMI Analyzer.
+5. The analyzer aligns timelines, validates data quality, and derives replay tracks.
 6. Users replay the fight and inspect ACM metrics from multiple views.
 
-## Recommended Technology Direction
+## Technology Direction
 
-The final stack can still be chosen during implementation, but the recommended direction is:
+Current recorder stack:
 
-- Desktop app: Tauri or Electron.
-- Frontend: TypeScript, React, Three.js.
-- Recorder core: TypeScript/Node.js or Rust, depending on desktop shell.
-- Local storage: newline-delimited JSON for raw samples plus a session manifest.
-- Analysis engine: TypeScript first, with Rust modules later if performance demands it.
+- Python 3.
+- PyQt6 for GUI.
+- Standard-library HTTP, ZIP, JSON, timing, and Windows input APIs.
+
+Recommended future analyzer stack:
+
+- TypeScript, React, and Three.js for interactive replay.
+- A small import/analysis layer that reads `.acmi` and derives viewer tracks offline.
+- Rust or Python helper modules only if performance or tooling requires them.
 
 ## Repository Layout
 
-Proposed layout:
+Current layout:
 
 ```text
 WTACMI/
   README.md
   docs/
-  apps/
-    recorder/
-    analyzer/
-  packages/
-    telemetry/
-    recording-format/
-    sync/
-    reconstruction/
-    metrics/
-    viewer/
-  samples/
-  tests/
+  recorder/
+    README.md
+    wtacmi_recorder.py
+    wtacmi_gui.py
+    output/
 ```
 
-The current repository only contains documentation. Create implementation folders as milestones begin.
+Future layout may add:
+
+```text
+apps/
+  analyzer/
+packages/
+  recording-format/
+  sync/
+  reconstruction/
+  metrics/
+  viewer/
+samples/
+tests/
+```
