@@ -20,12 +20,14 @@ import urllib.error
 import urllib.request
 import uuid
 import zipfile
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 
 APP_VERSION = "0.1.0"
 FORMAT_VERSION = 1
 DEFAULT_BASE_URL = "http://localhost:8111"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_OUTPUT_DIR = os.path.join(SCRIPT_DIR, "output")
 
 DEFAULT_ENDPOINTS = {
     "state": "/state",
@@ -231,6 +233,11 @@ def utc_now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat(timespec="milliseconds")
 
 
+def default_output_path() -> str:
+    timestamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+    return os.path.join(DEFAULT_OUTPUT_DIR, f"recording-{timestamp}.acmi")
+
+
 def monotonic_ms(start: float) -> float:
     return round((time.perf_counter() - start) * 1000.0, 3)
 
@@ -363,6 +370,66 @@ class TelemetryClient:
             return None, latency_ms, str(exc)
 
 
+def benchmark_telemetry_rate(
+    base_url: str = DEFAULT_BASE_URL,
+    timeout: float = 0.25,
+    duration: float = 3.0,
+    endpoints: Optional[Dict[str, str]] = None,
+) -> Dict[str, object]:
+    """Estimate the fastest full telemetry-cycle rate for this machine/game state."""
+    endpoint_map = endpoints or DEFAULT_ENDPOINTS
+    client = TelemetryClient(base_url, timeout)
+    started = time.perf_counter()
+    cycle_durations: List[float] = []
+    endpoint_latencies: Dict[str, List[float]] = {name: [] for name in endpoint_map}
+    errors: Dict[str, int] = {name: 0 for name in endpoint_map}
+    cycles = 0
+    successful_cycles = 0
+
+    while time.perf_counter() - started < duration:
+        cycle_started = time.perf_counter()
+        cycle_success = True
+        for name, endpoint in endpoint_map.items():
+            _data, latency_ms, error = client.fetch_json(endpoint)
+            endpoint_latencies[name].append(latency_ms)
+            if error:
+                errors[name] += 1
+                cycle_success = False
+        cycle_durations.append((time.perf_counter() - cycle_started) * 1000.0)
+        cycles += 1
+        if cycle_success:
+            successful_cycles += 1
+
+    elapsed = max(time.perf_counter() - started, 0.001)
+    full_cycle_hz = cycles / elapsed
+    successful_cycle_hz = successful_cycles / elapsed
+    avg_cycle_ms = sum(cycle_durations) / len(cycle_durations) if cycle_durations else 0.0
+    sorted_cycle = sorted(cycle_durations)
+    p95_index = min(len(sorted_cycle) - 1, int(len(sorted_cycle) * 0.95)) if sorted_cycle else 0
+    p95_cycle_ms = sorted_cycle[p95_index] if sorted_cycle else 0.0
+    recommended_hz = max(1.0, min(120.0, successful_cycle_hz * 0.7 if successful_cycles else full_cycle_hz * 0.5))
+
+    endpoint_summary = {}
+    for name, values in endpoint_latencies.items():
+        endpoint_summary[name] = {
+            "avgLatencyMs": round(sum(values) / len(values), 3) if values else None,
+            "maxLatencyMs": round(max(values), 3) if values else None,
+            "errors": errors[name],
+        }
+
+    return {
+        "durationSec": round(elapsed, 3),
+        "cycles": cycles,
+        "successfulCycles": successful_cycles,
+        "fullCycleHz": round(full_cycle_hz, 2),
+        "successfulCycleHz": round(successful_cycle_hz, 2),
+        "avgCycleMs": round(avg_cycle_ms, 3),
+        "p95CycleMs": round(p95_cycle_ms, 3),
+        "recommendedHz": round(recommended_hz, 1),
+        "endpoints": endpoint_summary,
+    }
+
+
 def write_json_line(handle, value: Dict[str, object]) -> None:
     handle.write(json.dumps(value, ensure_ascii=False, separators=(",", ":")) + "\n")
     handle.flush()
@@ -415,7 +482,11 @@ def summarize_bindings(bindings: Dict[str, List[Dict[str, object]]]) -> Iterable
         yield f"{control_name}: {', '.join(labels) if labels else 'unbound'}"
 
 
-def run_recording(args) -> int:
+def run_recording(
+    args,
+    should_stop: Optional[Callable[[], bool]] = None,
+    log: Callable[[str], None] = print,
+) -> int:
     raw_bindings = parse_blk_bindings(args.controls)
     control_bindings = select_control_bindings(raw_bindings)
     input_sampler = InputSampler(control_bindings)
@@ -429,13 +500,13 @@ def run_recording(args) -> int:
     with open(os.path.join(temp_dir, "manifest.json"), "w", encoding="utf-8") as handle:
         json.dump(manifest, handle, ensure_ascii=False, indent=2)
 
-    print("WTACMI recorder")
-    print(f"controls: {os.path.abspath(args.controls)}")
-    print(f"output:   {os.path.abspath(args.output)}")
-    print("selected bindings:")
+    log("WTACMI recorder")
+    log(f"controls: {os.path.abspath(args.controls)}")
+    log(f"output:   {os.path.abspath(args.output)}")
+    log("selected bindings:")
     for line in summarize_bindings(control_bindings):
-        print(f"  {line}")
-    print("press Ctrl+C to stop recording")
+        log(f"  {line}")
+    log("press Ctrl+C or Stop to stop recording")
 
     start = time.perf_counter()
     next_input = start
@@ -455,6 +526,8 @@ def run_recording(args) -> int:
             while True:
                 now = time.perf_counter()
                 if stop_at and now >= stop_at:
+                    break
+                if should_stop and should_stop():
                     break
 
                 if now >= next_input:
@@ -484,21 +557,21 @@ def run_recording(args) -> int:
                 if sleep_for > 0:
                     time.sleep(min(sleep_for, 0.01))
     except KeyboardInterrupt:
-        print("\nstopping...")
+        log("\nstopping...")
     finally:
         with open(os.path.join(temp_dir, "events.ndjson"), "a", encoding="utf-8") as events_file:
             write_json_line(events_file, {"tMs": monotonic_ms(start), "type": "recording-stopped", "utc": utc_now()})
         write_package(temp_dir, args.output)
         shutil.rmtree(temp_dir, ignore_errors=True)
 
-    print(f"saved {os.path.abspath(args.output)}")
+    log(f"saved {os.path.abspath(args.output)}")
     return 0
 
 
 def parse_args(argv: List[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Record War Thunder 8111 telemetry and local input into a .acmi file.")
     parser.add_argument("--controls", required=True, help="Path to War Thunder controls .blk file.")
-    parser.add_argument("--output", default="recording.acmi", help="Output .acmi package path.")
+    parser.add_argument("--output", default=default_output_path(), help="Output .acmi package path.")
     parser.add_argument("--pilot", default=os.environ.get("USERNAME", "Pilot"), help="Pilot alias stored in the manifest.")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help="War Thunder localhost telemetry base URL.")
     parser.add_argument("--telemetry-hz", type=float, default=10.0, help="Telemetry polling rate.")
