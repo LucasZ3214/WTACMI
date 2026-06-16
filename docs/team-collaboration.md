@@ -101,7 +101,6 @@ Recommended labels:
 Recorder changes should usually verify:
 
 - Python syntax compilation.
-- CLI short recording with `--duration`.
 - GUI offscreen initialization.
 - GUI start/stop recording path.
 - `.acmi` ZIP contents.

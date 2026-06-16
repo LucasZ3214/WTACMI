@@ -68,22 +68,6 @@ Buttons:
 - `Stop`: requests clean stop and packages the `.acmi` file.
 - `Detect Max Hz`: benchmarks current localhost `8111` response speed and fills `Telemetry Hz` with a conservative recommendation.
 
-## CLI Usage
-
-Run:
-
-```powershell
-python recorder\wtacmi_recorder.py --controls "C:\Users\ROG\Documents\My Games\WarThunder\Saves\xxx.blk" --output recorder\output\pilot-a.acmi --pilot pilot
-```
-
-Short test recording:
-
-```powershell
-python recorder\wtacmi_recorder.py --controls "C:\Users\ROG\Documents\My Games\WarThunder\Saves\xxx.blk" --duration 10
-```
-
-Stop an unlimited CLI recording with `Ctrl+C`.
-
 ## Detect Max Hz
 
 `Detect Max Hz` runs a short benchmark against the high-rate endpoints used by recording. It reports:

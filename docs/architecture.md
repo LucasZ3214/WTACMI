@@ -129,7 +129,7 @@ Planned:
 
 ## Data Flow
 
-1. User starts the GUI or CLI recorder.
+1. User starts the GUI recorder.
 2. Recorder parses the selected `.blk` controls file.
 3. Recorder polls `8111` telemetry and samples input state.
 4. Recorder writes a `.acmi` session package.

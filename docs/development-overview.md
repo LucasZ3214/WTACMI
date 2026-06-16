@@ -14,9 +14,9 @@ Build a local-first training and analysis tool for War Thunder air combat practi
 
 The repository currently includes a lightweight Python recorder:
 
-- `recorder/wtacmi_recorder.py`: CLI recorder and reusable recording core.
+- `recorder/wtacmi_recorder.py`: reusable recording core.
 - `recorder/wtacmi_gui.py`: PyQt6 GUI wrapper around the recorder core.
-- `recorder/output/`: default GUI/CLI output directory for `.acmi` files.
+- `recorder/output/`: default GUI output directory for `.acmi` files.
 
 The recorder:
 

@@ -10,7 +10,7 @@
 - Export one portable `.acmi` package per pilot.
 - Continue recording when individual telemetry requests fail.
 - Store request failures in `errors.ndjson`.
-- Provide CLI and PyQt6 GUI entrypoints.
+- Provide a PyQt6 GUI entrypoint for normal users.
 - Default GUI output path to `recorder/output/`.
 - Use `pilot` as the default pilot alias.
 - Remember last GUI inputs between launches.

@@ -25,19 +25,11 @@ Planned:
 
 ## Quick Start
 
-GUI:
-
 ```powershell
 python recorder\wtacmi_gui.py
 ```
 
-CLI:
-
-```powershell
-python recorder\wtacmi_recorder.py --controls "C:\Users\ROG\Documents\My Games\WarThunder\Saves\xxx.blk" --output recorder\output\pilot-a.acmi --pilot pilot
-```
-
-Start War Thunder before recording so `http://localhost:8111` is available. Stop GUI recordings with `Stop`; stop CLI recordings with `Ctrl+C`.
+Start War Thunder before recording so `http://localhost:8111` is available. Stop recordings with the GUI `Stop` button.
 
 ## Documentation
 

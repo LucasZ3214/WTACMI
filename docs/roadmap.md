@@ -22,7 +22,6 @@ Implemented:
 - Store timestamped raw telemetry samples.
 - Capture basic keyboard/mouse control inputs from a selected `.blk` controls file.
 - Write `manifest.json`, `telemetry.ndjson`, `inputs.ndjson`, `events.ndjson`, and `errors.ndjson`.
-- Provide a CLI recorder.
 - Provide a PyQt6 GUI recorder.
 - Default output to `recorder/output/`.
 - Remember last GUI settings.
@@ -48,7 +47,7 @@ Goal: read `.acmi` files and report whether they are usable.
 - Count telemetry, input, event, and error samples.
 - Report endpoint gaps and high-latency regions.
 - Show basic recording summary.
-- Provide this as a PyQt6 GUI first, not only a command-line tool.
+- Provide this as a PyQt6 GUI.
 
 ## Milestone 3: Single-Track Replay
 
