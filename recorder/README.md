@@ -47,7 +47,8 @@ GUI fields:
 - `Output .acmi`: destination recording path.
 - `Pilot`: pilot alias stored in `manifest.json`.
 - `8111 Base URL`: normally `http://localhost:8111`.
-- `Telemetry Hz`: target full-cycle telemetry polling rate.
+- `State/Indicators Hz`: target high-rate polling for `/state` and `/indicators`.
+- `Map Objects Hz`: lower-rate polling for `/map_obj.json`; set `0` to disable.
 - `Input Hz`: local input sampling rate.
 - `HTTP Timeout`: timeout per endpoint request.
 - `Duration`: seconds to record; `0` means record until `Stop`.
@@ -56,7 +57,8 @@ Defaults:
 
 - Output path is `recorder\output\recording-YYYYMMDD-HHMMSS.acmi`.
 - Pilot is `pilot`.
-- Telemetry Hz is `10`.
+- State/Indicators Hz is `20`.
+- Map Objects Hz is `5`.
 - Input Hz is `60`.
 - GUI settings are remembered between launches.
 
@@ -84,7 +86,7 @@ Stop an unlimited CLI recording with `Ctrl+C`.
 
 ## Detect Max Hz
 
-`Detect Max Hz` runs a short benchmark against the same five endpoints used by recording. It reports:
+`Detect Max Hz` runs a short benchmark against the high-rate endpoints used by recording. It reports:
 
 - full-cycle Hz;
 - successful-cycle Hz;

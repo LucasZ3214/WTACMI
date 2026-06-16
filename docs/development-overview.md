@@ -25,7 +25,8 @@ The recorder:
 - samples keyboard and mouse button state on Windows;
 - writes raw telemetry and input samples into `.acmi`;
 - records request errors instead of stopping immediately;
-- can benchmark local `8111` polling speed and suggest a conservative telemetry Hz.
+- samples `/state` and `/indicators` at a higher rate than heavier/static endpoints;
+- can benchmark local `8111` high-rate polling speed and suggest a conservative telemetry Hz.
 
 ## Target Users
 
@@ -42,6 +43,7 @@ Implemented recorder capabilities:
 - Store each pilot's session as a portable `.acmi` file.
 - Use a GUI to choose controls file, output path, pilot name, sample rates, and duration.
 - Remember last GUI settings across launches.
+- Keep recorder work lightweight and defer replay-track derivation to offline analysis.
 
 Planned analyzer capabilities:
 
@@ -65,9 +67,10 @@ Planned analyzer capabilities:
 1. Pilot A and Pilot B both start WTACMI Recorder before training.
 2. Each recorder polls War Thunder localhost `8111` and captures local input state.
 3. Each pilot stops recording and exports a `.acmi` file.
-4. One user imports both `.acmi` files into the future WTACMI Analyzer.
-5. The analyzer aligns timelines, validates data quality, and derives replay tracks.
-6. Users replay the fight and inspect ACM metrics from multiple views.
+4. Pilots manually exchange `.acmi` files.
+5. One user imports both `.acmi` files into the future WTACMI Analyzer.
+6. The analyzer aligns timelines, validates data quality, and derives replay tracks.
+7. Users replay the fight and inspect ACM metrics from multiple views.
 
 ## Technology Direction
 
@@ -79,9 +82,10 @@ Current recorder stack:
 
 Recommended future analyzer stack:
 
-- TypeScript, React, and Three.js for interactive replay.
+- Python and PyQt6 first, starting with a GUI `.acmi` importer/validator.
+- Python-native visualization prototypes such as PyQtGraph/OpenGL, VisPy, VTK, or PyVista.
+- A possible Three.js viewer later if the project needs richer browser-style 3D interaction.
 - A small import/analysis layer that reads `.acmi` and derives viewer tracks offline.
-- Rust or Python helper modules only if performance or tooling requires them.
 
 ## Repository Layout
 

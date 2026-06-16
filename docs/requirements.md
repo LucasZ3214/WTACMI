@@ -14,17 +14,15 @@
 - Default GUI output path to `recorder/output/`.
 - Use `pilot` as the default pilot alias.
 - Remember last GUI inputs between launches.
-- Provide a local `8111` polling-rate detection button that estimates current full-cycle Hz and fills a conservative recommended telemetry rate.
+- Provide a local `8111` polling-rate detection button that estimates current high-rate `/state` + `/indicators` Hz and fills a conservative recommended telemetry rate.
 
 ### Recorder Data Sources
 
-The first recorder polls:
+The first recorder samples endpoints at different rates:
 
-- `/state`
-- `/indicators`
-- `/map_info.json`
-- `/mission.json`
-- `/map_obj.json`
+- High-rate: `/state`, `/indicators`
+- Low-rate: `/map_obj.json`
+- Startup/static: `/map_info.json`, `/mission.json`
 
 The first recorder samples:
 
@@ -43,6 +41,7 @@ The first recorder samples:
 - Mouse aim cursor position is not implemented yet.
 - Input capture currently targets Windows keyboard and mouse button state.
 - The `Detect Max Hz` result is an estimate for the current machine and current War Thunder state, not a fixed official maximum.
+- Default high-rate telemetry is `20 Hz`; default input is `60 Hz`; default map objects is `5 Hz`.
 
 ## Import And Synchronization Requirements
 

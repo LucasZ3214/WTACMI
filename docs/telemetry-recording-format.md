@@ -36,7 +36,8 @@ The recorder intentionally keeps the package lightweight. It stores raw telemetr
     "startWallTimeUtc": "2026-06-16T00:00:00.000+00:00"
   },
   "sampleRates": {
-    "telemetryHzTarget": 10.0,
+    "telemetryHzTarget": 20.0,
+    "mapObjectsHzTarget": 5.0,
     "inputHzTarget": 60.0
   },
   "source": {
@@ -47,6 +48,19 @@ The recorder intentionally keeps the package lightweight. It stores raw telemetr
       "map_info": "/map_info.json",
       "mission": "/mission.json",
       "map_objects": "/map_obj.json"
+    },
+    "endpointGroups": {
+      "highRate": {
+        "state": "/state",
+        "indicators": "/indicators"
+      },
+      "lowRate": {
+        "map_objects": "/map_obj.json"
+      },
+      "static": {
+        "map_info": "/map_info.json",
+        "mission": "/mission.json"
+      }
     },
     "localhostDocumentation": "https://github.com/lucasvmx/WarThunder-localhost-documentation"
   },
@@ -76,7 +90,9 @@ Notes:
 
 - `tMs` is milliseconds since the recorder's monotonic start.
 - `data` is the raw parsed JSON response from War Thunder.
-- One telemetry cycle can produce multiple lines because each endpoint is stored separately.
+- High-rate cycles produce `/state` and `/indicators` lines.
+- `/map_obj.json` is stored at a lower rate.
+- `/map_info.json` and `/mission.json` are stored at recording start.
 - Request failures are stored in `errors.ndjson`, not in `telemetry.ndjson`.
 
 ## Input Samples
@@ -178,7 +194,7 @@ Because this data is derived, extraction rules can improve without requiring use
 
 ## Polling Rate Detection
 
-The PyQt6 GUI can run a short benchmark against the same five endpoints used by recording. The benchmark result is not stored in `.acmi` by default. It is a setup aid used to fill a conservative `Telemetry Hz` value.
+The PyQt6 GUI can run a short benchmark against the high-rate endpoints used by recording. The benchmark result is not stored in `.acmi` by default. It is a setup aid used to fill a conservative high-rate telemetry Hz value.
 
 The benchmark reports:
 

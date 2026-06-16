@@ -25,9 +25,25 @@ from PyQt6.QtWidgets import (
 )
 
 try:
-    from wtacmi_recorder import DEFAULT_BASE_URL, benchmark_telemetry_rate, default_output_path, run_recording
+    from wtacmi_recorder import (
+        DEFAULT_BASE_URL,
+        DEFAULT_INPUT_HZ,
+        DEFAULT_MAP_OBJECTS_HZ,
+        DEFAULT_TELEMETRY_HZ,
+        benchmark_telemetry_rate,
+        default_output_path,
+        run_recording,
+    )
 except ImportError:
-    from recorder.wtacmi_recorder import DEFAULT_BASE_URL, benchmark_telemetry_rate, default_output_path, run_recording
+    from recorder.wtacmi_recorder import (
+        DEFAULT_BASE_URL,
+        DEFAULT_INPUT_HZ,
+        DEFAULT_MAP_OBJECTS_HZ,
+        DEFAULT_TELEMETRY_HZ,
+        benchmark_telemetry_rate,
+        default_output_path,
+        run_recording,
+    )
 
 
 class RecorderThread(QThread):
@@ -62,7 +78,7 @@ class BenchmarkThread(QThread):
 
     def run(self):
         try:
-            self.log_line.emit("Detecting localhost 8111 polling rate...")
+            self.log_line.emit("Detecting localhost 8111 high-rate polling capacity...")
             result = benchmark_telemetry_rate(self.base_url, self.timeout, self.duration)
             self.finished_with_result.emit(True, result)
         except Exception:
@@ -86,12 +102,17 @@ class MainWindow(QMainWindow):
         self.telemetry_hz = QDoubleSpinBox()
         self.telemetry_hz.setRange(1.0, 120.0)
         self.telemetry_hz.setDecimals(1)
-        self.telemetry_hz.setValue(10.0)
+        self.telemetry_hz.setValue(DEFAULT_TELEMETRY_HZ)
+
+        self.map_objects_hz = QDoubleSpinBox()
+        self.map_objects_hz.setRange(0.0, 30.0)
+        self.map_objects_hz.setDecimals(1)
+        self.map_objects_hz.setValue(DEFAULT_MAP_OBJECTS_HZ)
 
         self.input_hz = QDoubleSpinBox()
         self.input_hz.setRange(1.0, 240.0)
         self.input_hz.setDecimals(1)
-        self.input_hz.setValue(60.0)
+        self.input_hz.setValue(DEFAULT_INPUT_HZ)
 
         self.timeout = QDoubleSpinBox()
         self.timeout.setRange(0.05, 5.0)
@@ -138,7 +159,8 @@ class MainWindow(QMainWindow):
         telemetry_row = QHBoxLayout()
         telemetry_row.addWidget(self.telemetry_hz)
         telemetry_row.addWidget(self.detect_button)
-        form.addRow("Telemetry Hz", telemetry_row)
+        form.addRow("State/Indicators Hz", telemetry_row)
+        form.addRow("Map Objects Hz", self.map_objects_hz)
         form.addRow("Input Hz", self.input_hz)
         form.addRow("HTTP Timeout", self.timeout)
         form.addRow("Duration", self.duration)
@@ -174,8 +196,9 @@ class MainWindow(QMainWindow):
         self.output_edit.setText(self.settings.value("output", self.output_edit.text(), str))
         self.pilot_edit.setText(self.settings.value("pilot", "pilot", str))
         self.base_url_edit.setText(self.settings.value("baseUrl", DEFAULT_BASE_URL, str))
-        self.telemetry_hz.setValue(float(self.settings.value("telemetryHz", 10.0)))
-        self.input_hz.setValue(float(self.settings.value("inputHz", 60.0)))
+        self.telemetry_hz.setValue(float(self.settings.value("telemetryHz", DEFAULT_TELEMETRY_HZ)))
+        self.map_objects_hz.setValue(float(self.settings.value("mapObjectsHz", DEFAULT_MAP_OBJECTS_HZ)))
+        self.input_hz.setValue(float(self.settings.value("inputHz", DEFAULT_INPUT_HZ)))
         self.timeout.setValue(float(self.settings.value("timeout", 0.25)))
         self.duration.setValue(float(self.settings.value("duration", 0.0)))
 
@@ -185,6 +208,7 @@ class MainWindow(QMainWindow):
         self.settings.setValue("pilot", self.pilot_edit.text().strip() or "pilot")
         self.settings.setValue("baseUrl", self.base_url_edit.text().strip() or DEFAULT_BASE_URL)
         self.settings.setValue("telemetryHz", self.telemetry_hz.value())
+        self.settings.setValue("mapObjectsHz", self.map_objects_hz.value())
         self.settings.setValue("inputHz", self.input_hz.value())
         self.settings.setValue("timeout", self.timeout.value())
         self.settings.setValue("duration", self.duration.value())
@@ -223,9 +247,10 @@ class MainWindow(QMainWindow):
         return SimpleNamespace(
             controls=controls,
             output=output,
-            pilot=self.pilot_edit.text().strip() or "Pilot",
+            pilot=self.pilot_edit.text().strip() or "pilot",
             base_url=self.base_url_edit.text().strip() or DEFAULT_BASE_URL,
             telemetry_hz=float(self.telemetry_hz.value()),
+            map_objects_hz=float(self.map_objects_hz.value()),
             input_hz=float(self.input_hz.value()),
             timeout=float(self.timeout.value()),
             duration=float(self.duration.value()),
@@ -299,7 +324,7 @@ class MainWindow(QMainWindow):
         self.save_settings()
         self.append_log(
             "Polling detection complete: "
-            f"full-cycle {result['fullCycleHz']} Hz, "
+            f"high-rate cycle {result['fullCycleHz']} Hz, "
             f"successful {result['successfulCycleHz']} Hz, "
             f"avg cycle {result['avgCycleMs']} ms, "
             f"p95 cycle {result['p95CycleMs']} ms, "

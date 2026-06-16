@@ -27,6 +27,7 @@ Implemented:
 - Default output to `recorder/output/`.
 - Remember last GUI settings.
 - Detect current localhost `8111` polling capacity and suggest telemetry Hz.
+- Split endpoint sampling rates to reduce game-performance impact.
 
 Remaining recorder work:
 
@@ -35,7 +36,7 @@ Remaining recorder work:
 - Add better live recording status such as file size, sample counts, and last endpoint error.
 - Add packaging for non-developer Windows users.
 
-## Milestone 2: ACMI Import And Validation
+## Milestone 2: GUI ACMI Import And Validation
 
 Status: next
 
@@ -47,6 +48,7 @@ Goal: read `.acmi` files and report whether they are usable.
 - Count telemetry, input, event, and error samples.
 - Report endpoint gaps and high-latency regions.
 - Show basic recording summary.
+- Provide this as a PyQt6 GUI first, not only a command-line tool.
 
 ## Milestone 3: Single-Track Replay
 

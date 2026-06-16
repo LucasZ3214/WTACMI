@@ -45,6 +45,7 @@ Start War Thunder before recording so `http://localhost:8111` is available. Stop
 - [Requirements](docs/requirements.md)
 - [Architecture](docs/architecture.md)
 - [Telemetry and Recording Format](docs/telemetry-recording-format.md)
+- [Project Decisions](docs/project-decisions.md)
 - [Team Collaboration Guide](docs/team-collaboration.md)
 - [Roadmap](docs/roadmap.md)
 - [Recorder User Guide](recorder/README.md)

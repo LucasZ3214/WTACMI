@@ -46,11 +46,13 @@ The current recorder is intentionally lightweight. It writes raw telemetry and i
 - Remembers last GUI settings through `QSettings`.
 - Starts and stops the recorder core in a background `QThread`.
 - Displays recorder logs.
-- Runs a short localhost `8111` benchmark through `Detect Max Hz`.
+- Runs a short localhost `8111` high-rate endpoint benchmark through `Detect Max Hz`.
 
 ### Telemetry Poller
 
-- Polls configured `8111` endpoints at the selected telemetry Hz.
+- Polls `/state` and `/indicators` at the selected high-rate telemetry Hz.
+- Polls `/map_obj.json` at a lower configurable rate.
+- Polls `/map_info.json` and `/mission.json` at recording start.
 - Stores raw JSON endpoint responses.
 - Adds local monotonic timestamps.
 - Records request latency and errors.
@@ -83,6 +85,7 @@ The current recorder is intentionally lightweight. It writes raw telemetry and i
 ### Polling Benchmark
 
 - Repeatedly requests the same endpoints used during recording.
+- Currently benchmarks high-rate `/state` and `/indicators` cycles.
 - Computes full-cycle Hz, successful-cycle Hz, average cycle time, p95 cycle time, and per-endpoint latency/error summaries.
 - Fills GUI telemetry Hz with a conservative recommended value.
 

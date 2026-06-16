@@ -28,13 +28,28 @@ FORMAT_VERSION = 1
 DEFAULT_BASE_URL = "http://localhost:8111"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_OUTPUT_DIR = os.path.join(SCRIPT_DIR, "output")
+DEFAULT_TELEMETRY_HZ = 20.0
+DEFAULT_INPUT_HZ = 60.0
+DEFAULT_MAP_OBJECTS_HZ = 5.0
 
-DEFAULT_ENDPOINTS = {
+HIGH_RATE_ENDPOINTS = {
     "state": "/state",
     "indicators": "/indicators",
+}
+
+STATIC_ENDPOINTS = {
     "map_info": "/map_info.json",
     "mission": "/mission.json",
+}
+
+LOW_RATE_ENDPOINTS = {
     "map_objects": "/map_obj.json",
+}
+
+DEFAULT_ENDPOINTS = {
+    **HIGH_RATE_ENDPOINTS,
+    **STATIC_ENDPOINTS,
+    **LOW_RATE_ENDPOINTS,
 }
 
 CONTROL_BINDING_KEYS = {
@@ -376,8 +391,8 @@ def benchmark_telemetry_rate(
     duration: float = 3.0,
     endpoints: Optional[Dict[str, str]] = None,
 ) -> Dict[str, object]:
-    """Estimate the fastest full telemetry-cycle rate for this machine/game state."""
-    endpoint_map = endpoints or DEFAULT_ENDPOINTS
+    """Estimate the fastest high-rate telemetry cycle for this machine/game state."""
+    endpoint_map = endpoints or HIGH_RATE_ENDPOINTS
     client = TelemetryClient(base_url, timeout)
     started = time.perf_counter()
     cycle_durations: List[float] = []
@@ -448,11 +463,17 @@ def build_manifest(args, recording_id: str, started_at: str, bindings: Dict[str,
         },
         "sampleRates": {
             "telemetryHzTarget": args.telemetry_hz,
+            "mapObjectsHzTarget": args.map_objects_hz,
             "inputHzTarget": args.input_hz,
         },
         "source": {
             "localhostBaseUrl": args.base_url,
             "endpoints": DEFAULT_ENDPOINTS,
+            "endpointGroups": {
+                "highRate": HIGH_RATE_ENDPOINTS,
+                "lowRate": LOW_RATE_ENDPOINTS,
+                "static": STATIC_ENDPOINTS,
+            },
             "localhostDocumentation": "https://github.com/lucasvmx/WarThunder-localhost-documentation",
         },
         "controlsFile": {
@@ -461,6 +482,31 @@ def build_manifest(args, recording_id: str, started_at: str, bindings: Dict[str,
         },
         "inputBindings": bindings,
     }
+
+
+def record_endpoint(
+    telemetry_client: TelemetryClient,
+    telemetry_file,
+    errors_file,
+    t_ms: float,
+    name: str,
+    endpoint: str,
+) -> None:
+    data, latency_ms, error = telemetry_client.fetch_json(endpoint)
+    record = {
+        "tMs": t_ms,
+        "endpointName": name,
+        "endpoint": endpoint,
+        "latencyMs": latency_ms,
+    }
+    if error is None:
+        record["data"] = data
+        write_json_line(telemetry_file, record)
+    else:
+        write_json_line(
+            errors_file,
+            {**record, "source": "telemetry-poller", "severity": "warning", "message": error},
+        )
 
 
 def write_package(temp_dir: str, output_path: str) -> None:
@@ -511,8 +557,10 @@ def run_recording(
     start = time.perf_counter()
     next_input = start
     next_telemetry = start
+    next_map_objects = start
     telemetry_interval = 1.0 / args.telemetry_hz
     input_interval = 1.0 / args.input_hz
+    map_objects_interval = 1.0 / args.map_objects_hz if args.map_objects_hz > 0 else None
     stop_at = start + args.duration if args.duration else None
 
     try:
@@ -522,6 +570,8 @@ def run_recording(
             os.path.join(temp_dir, "errors.ndjson"), "a", encoding="utf-8"
         ) as errors_file:
             write_json_line(events_file, {"tMs": 0, "type": "recording-started", "utc": started_at})
+            for name, endpoint in STATIC_ENDPOINTS.items():
+                record_endpoint(telemetry_client, telemetry_file, errors_file, 0, name, endpoint)
 
             while True:
                 now = time.perf_counter()
@@ -538,22 +588,20 @@ def run_recording(
 
                 if now >= next_telemetry:
                     t_ms = monotonic_ms(start)
-                    for name, endpoint in DEFAULT_ENDPOINTS.items():
-                        data, latency_ms, error = telemetry_client.fetch_json(endpoint)
-                        record = {
-                            "tMs": t_ms,
-                            "endpointName": name,
-                            "endpoint": endpoint,
-                            "latencyMs": latency_ms,
-                        }
-                        if error is None:
-                            record["data"] = data
-                            write_json_line(telemetry_file, record)
-                        else:
-                            write_json_line(errors_file, {**record, "source": "telemetry-poller", "severity": "warning", "message": error})
+                    for name, endpoint in HIGH_RATE_ENDPOINTS.items():
+                        record_endpoint(telemetry_client, telemetry_file, errors_file, t_ms, name, endpoint)
                     next_telemetry += telemetry_interval
 
-                sleep_for = min(next_input, next_telemetry) - time.perf_counter()
+                if map_objects_interval is not None and now >= next_map_objects:
+                    t_ms = monotonic_ms(start)
+                    for name, endpoint in LOW_RATE_ENDPOINTS.items():
+                        record_endpoint(telemetry_client, telemetry_file, errors_file, t_ms, name, endpoint)
+                    next_map_objects += map_objects_interval
+
+                next_times = [next_input, next_telemetry]
+                if map_objects_interval is not None:
+                    next_times.append(next_map_objects)
+                sleep_for = min(next_times) - time.perf_counter()
                 if sleep_for > 0:
                     time.sleep(min(sleep_for, 0.01))
     except KeyboardInterrupt:
@@ -574,8 +622,9 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     parser.add_argument("--output", default=default_output_path(), help="Output .acmi package path.")
     parser.add_argument("--pilot", default=os.environ.get("USERNAME", "Pilot"), help="Pilot alias stored in the manifest.")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help="War Thunder localhost telemetry base URL.")
-    parser.add_argument("--telemetry-hz", type=float, default=10.0, help="Telemetry polling rate.")
-    parser.add_argument("--input-hz", type=float, default=60.0, help="Input sampling rate.")
+    parser.add_argument("--telemetry-hz", type=float, default=DEFAULT_TELEMETRY_HZ, help="High-rate /state and /indicators polling rate.")
+    parser.add_argument("--map-objects-hz", type=float, default=DEFAULT_MAP_OBJECTS_HZ, help="/map_obj.json polling rate. Use 0 to disable.")
+    parser.add_argument("--input-hz", type=float, default=DEFAULT_INPUT_HZ, help="Input sampling rate.")
     parser.add_argument("--timeout", type=float, default=0.25, help="HTTP timeout per endpoint in seconds.")
     parser.add_argument("--duration", type=float, default=0.0, help="Optional recording duration in seconds. 0 records until Ctrl+C.")
     args = parser.parse_args(argv)
@@ -584,6 +633,8 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         parser.error("--telemetry-hz must be greater than 0")
     if args.input_hz <= 0:
         parser.error("--input-hz must be greater than 0")
+    if args.map_objects_hz < 0:
+        parser.error("--map-objects-hz must be 0 or greater")
     if args.timeout <= 0:
         parser.error("--timeout must be greater than 0")
     if not os.path.isfile(args.controls):
